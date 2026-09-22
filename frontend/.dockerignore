@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+_gitignore
+
+# IDE / Editor
+.vscode
+.idea
+
+# Dependencies — installed fresh inside Docker
+node_modules
+
+# Build output — built inside Docker
+dist
+dist-ssr
+.vite
+
+# CI/CD — not needed in image
+.github
+
+# Environment — use runtime env vars / secrets, never bake into image
+.env
+.env.local
+.env.*.local
+
+# Test artifacts
+coverage
+playwright-report
+test-results
+
+# Storybook
+storybook-static
+
+# Linting / formatting configs
+.oxlintrc.json
+.oxfmtignore
+
+# E2E tests — not part of production build
+e2e
+
+# Husky git hooks
+.husky
+
+# Docs
+README.md
+LICENSE
