@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "pnpm --filter api start:dev & pnpm --filter web dev",
-    "build": "pnpm --filter api build && pnpm --filter web build",
+    "dev": "pnpm --filter shared build && pnpm --filter api start:dev & pnpm --filter web dev",
+    "build": "pnpm --filter shared build && pnpm --filter api build && pnpm --filter web build",
     "test": "pnpm --filter api test",
     "test:e2e": "pnpm --filter api test:e2e",
     "lint": "pnpm --filter api lint && pnpm --filter web lint",
@@ -14,7 +14,7 @@
     "db:migrate": "pnpm --filter api db:migrate"
   },
   "keywords": [],
-  "author": "",
+  "author": "Rakesh",
   "license": "ISC",
   "engines": {
     "node": ">=24.15.0"
