@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1790154194821,
+      "tag": "0000_same_moon_knight",
+      "breakpoints": true
+    }
+  ]
+}

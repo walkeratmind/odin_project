@@ -1,35 +1,26 @@
 # AGENTS.md
 
-
 ## Commands
 
-All scripts run from `backend/` directory unless noted otherwise.
 
 ```bash
+
 # Install dependencies (from repo root)
-cd backend && pnpm install
-cd frontend && pnpm install
-
-
-# Docker dev (recommended, from infra/)
-docker compose watch
+cd apps/api && pnpm install
+cd apps/web && pnpm install
 
 # Tests
-cd backend && pnpm run test           # vitest run
-cd backend && pnpm run test:coverage  # vitest with coverage
-cd backend && npx vitest run tests/work-items.e2e.spec.ts  # single file
+cd apps/api && pnpm run test
+cd apps/api && pnpm run test:e2e
 
 # Lint + type check
-cd backend && pnpm run lint    # eslint + tsc --noEmit
-cd frontend && pnpm run lint   # eslint + tsc --noEmit
+cd apps/api && pnpm run lint
+cd apps/web && pnpm run lint
 
-# Format
-cd backend && pnpm run format   # prettier --write
-cd frontend && pnpm run format  # prettier --write
+# DB migrations
+cd apps/api && npx drizzle-kit generate
+cd apps/api && npx drizzle-kit migrate
 
-# DB migrations (inside backend container)
-npx drizzle-kit generate
-npx drizzle-kit migrate
 ```
 
 ## Architecture

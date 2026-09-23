@@ -1,27 +1,24 @@
+# compiled output
+dist/
+*.tsbuildinfo
+
 # dependencies
 node_modules/
 
-# build output
-dist/
-*.tsbuildinfo
+# database
+data/*.db
+data/*.db-journal
+data/*.db-wal
 
 # environment
 .env
 .env.*
-
-# database
-*.db
-*.db-journal
-*.db-wal
 
 # test coverage
 coverage/
 
 # logs
 *.log
-
-# package manager
-.pnpm-store/
 
 # IDE
 .idea/
