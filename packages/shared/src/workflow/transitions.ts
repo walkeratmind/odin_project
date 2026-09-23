@@ -1,9 +1,4 @@
-export type WorkItemStatus =
-  | 'RECEIVED'
-  | 'ANALYSING'
-  | 'READY_FOR_REVIEW'
-  | 'COMPLETED'
-  | 'FAILED';
+import type { WorkItemStatus } from '../types/work-item.js';
 
 /**
  * Allowed transitions map.

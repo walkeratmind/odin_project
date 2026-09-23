@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const UpdateStatusRequestSchema = z.object({
+export const UpdateStatusSchema = z.object({
   status: z.enum([
     'RECEIVED',
     'ANALYSING',
@@ -10,4 +10,4 @@ export const UpdateStatusRequestSchema = z.object({
   ]),
 });
 
-export type UpdateStatusRequest = z.infer<typeof UpdateStatusRequestSchema>;
+export type UpdateStatusRequest = z.infer<typeof UpdateStatusSchema>;

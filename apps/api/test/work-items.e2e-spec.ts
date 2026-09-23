@@ -6,7 +6,7 @@ import Database from 'better-sqlite3';
 import { AppModule } from '../src/app.module.js';
 import * as schema from '../src/db/schema.js';
 import { DRIZZLE_PROVIDER } from '../src/db/database.provider.js';
-import type { AiProvider, AiAnalysis } from '../src/ai/ai-provider.interface.js';
+import type { AiProvider, AiAnalysis } from '@odin/shared';
 
 class ConfigurableMockAiProvider implements AiProvider {
   shouldFail = false;

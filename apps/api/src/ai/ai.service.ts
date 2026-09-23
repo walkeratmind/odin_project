@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
-import { AiAnalysis } from './ai-provider.interface.js';
-import type { AiProvider } from './ai-provider.interface.js';
-import { AiAnalysisSchema } from './schemas/analysis.schema.js';
+import type { AiProvider } from '@odin/shared';
+import type { AiAnalysis } from '@odin/shared';
+import { AiAnalysisSchema } from '@odin/shared';
 import { ZodError } from 'zod';
 
 @Injectable()

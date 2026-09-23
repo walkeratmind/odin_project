@@ -5,9 +5,7 @@ import * as schema from '../db/schema.js';
 import { DRIZZLE_PROVIDER } from '../db/database.provider.js';
 import { WorkflowService } from './workflow/workflow.service.js';
 import { AiService } from '../ai/ai.service.js';
-import type { CreateWorkItemRequest } from './dto/create-work-item.dto.js';
-import type { UpdateStatusRequest } from './dto/update-status.dto.js';
-import { WorkItemStatus } from './workflow/transitions.js';
+import type { CreateWorkItemRequest, UpdateStatusRequest, WorkItemStatus } from '@odin/shared';
 
 type WorkItem = typeof schema.workItems.$inferSelect;
 type NewWorkItem = typeof schema.workItems.$inferInsert;
@@ -199,17 +197,18 @@ export class WorkItemsService {
 
     this.workflowService.validateRetry(item.status as WorkItemStatus);
 
-    // Reset to RECEIVED so analyse() can pick it up
+    // Reset to RECEIVED first, then re-run analysis
     await this.updateItemStatus(item.id, 'RECEIVED');
-
-    // Run the full analysis pipeline
-    return this.analyse(item.id);
+    return this.analyse(id);
   }
 
   /**
-   * Low-level status update (no validation).
+   * Internal helper: update only the status + timestamp of a work item.
    */
-  private updateItemStatus(id: number, status: WorkItemStatus): WorkItem {
+  private async updateItemStatus(
+    id: number,
+    status: WorkItemStatus,
+  ): Promise<WorkItem> {
     return this.db
       .update(schema.workItems)
       .set({

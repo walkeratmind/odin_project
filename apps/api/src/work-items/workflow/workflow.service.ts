@@ -1,8 +1,5 @@
 import { Injectable, ConflictException } from '@nestjs/common';
-import {
-  ALLOWED_TRANSITIONS,
-  WorkItemStatus,
-} from './transitions.js';
+import { ALLOWED_TRANSITIONS, type WorkItemStatus } from '@odin/shared';
 
 @Injectable()
 export class WorkflowService {

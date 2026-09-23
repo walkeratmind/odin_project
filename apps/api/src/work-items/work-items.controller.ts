@@ -10,17 +10,19 @@ import {
 } from '@nestjs/common';
 import { WorkItemsService } from './work-items.service.js';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe.js';
-import { CreateWorkItemRequestSchema } from './dto/create-work-item.dto.js';
-import type { CreateWorkItemRequest } from './dto/create-work-item.dto.js';
-import { UpdateStatusRequestSchema } from './dto/update-status.dto.js';
-import type { UpdateStatusRequest } from './dto/update-status.dto.js';
+import {
+  CreateWorkItemSchema,
+  type CreateWorkItemRequest,
+  UpdateStatusSchema,
+  type UpdateStatusRequest,
+} from '@odin/shared';
 
 @Controller('work-items')
 export class WorkItemsController {
   constructor(private readonly workItemsService: WorkItemsService) {}
 
   @Post()
-  async create(@Body(new ZodValidationPipe(CreateWorkItemRequestSchema)) dto: CreateWorkItemRequest) {
+  async create(@Body(new ZodValidationPipe(CreateWorkItemSchema)) dto: CreateWorkItemRequest) {
     return this.workItemsService.create(dto);
   }
 
@@ -47,7 +49,7 @@ export class WorkItemsController {
   @Patch(':id/status')
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body(new ZodValidationPipe(UpdateStatusRequestSchema)) dto: UpdateStatusRequest,
+    @Body(new ZodValidationPipe(UpdateStatusSchema)) dto: UpdateStatusRequest,
   ) {
     return this.workItemsService.updateStatus(id, dto);
   }

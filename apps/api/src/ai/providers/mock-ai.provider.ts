@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AiProvider, AiAnalysis } from '../ai-provider.interface.js';
+import type { AiProvider, AiAnalysis } from '@odin/shared';
 
 @Injectable()
 export class MockAiProvider implements AiProvider {

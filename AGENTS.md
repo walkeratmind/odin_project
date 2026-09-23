@@ -2,58 +2,61 @@
 
 ## Commands
 
-
 ```bash
-
 # Install dependencies (from repo root)
-cd apps/api && pnpm install
-cd apps/web && pnpm install
+pnpm install
 
 # Tests
-cd apps/api && pnpm run test
 cd apps/api && pnpm run test:e2e
 
-# Lint + type check
+# Lint
 cd apps/api && pnpm run lint
 cd apps/web && pnpm run lint
 
-# DB migrations
-cd apps/api && npx drizzle-kit generate
-cd apps/api && npx drizzle-kit migrate
+# Build
+cd apps/api && pnpm run build
+cd apps/web && pnpm run build
 
+# DB migrations
+cd apps/api && pnpm run db:generate
+cd apps/api && pnpm run db:migrate
+
+# Dev (both api + web)
+pnpm run dev
 ```
 
 ## Architecture
 
-AI-assisted work intake system. Data flows:
+AI-assisted work intake system — monorepo with shared types.
 
-```mermaid
-flowchart LR
-    A[External System] -->|POST /work-items| B[SQLite<br/>Drizzle]
-    B --> C[LLM Analysis]
-    C --> D[Frontend<br/>TanStack]
-
-    C --> E[Groq<br/>primary]
-    E -.fallback.-> F[OpenRouter<br/>fallback]
+```
+odin_project/
+├── packages/
+│   └── shared/          # @odin/shared — types, Zod DTOs, workflow, AI interfaces
+├── apps/
+│   ├── api/             # NestJS backend (Drizzle + SQLite + AI provider)
+│   └── web/             # React + Vite frontend (TanStack Router + Query + Redux)
+├── docs/adr/            # Architecture Decision Records
+└── infra/               # Docker compose
 ```
 
 ```mermaid
 flowchart TB
-    subgraph Frontend["React App"]
-        F1[Work Items]
-        F2[Filters]
-        F3[Analysis]
-        F4[Retry]
-        F5[Complete]
+    subgraph Frontend["apps/web — React + Vite"]
+        F1[WorkItemList]
+        F2[FilterBar]
+        F3[WorkItemCard]
+        F4[TanStack Query hooks]
+        F5[Redux store]
     end
 
     Frontend -->|REST / JSON| Backend
 
-    subgraph Backend["NestJS API"]
+    subgraph Backend["apps/api — NestJS"]
         B1[WorkItemsController]
         B2[WorkItemsService]
-        B3[AnalysisService]
-        B4[WorkflowService]
+        B3[WorkflowService]
+        B4[AiService]
     end
 
     Backend --> DB
@@ -66,146 +69,88 @@ flowchart TB
     subgraph AI["AI Provider"]
         A1[Mock / OpenAI]
     end
+
+    subgraph Shared["packages/shared"]
+        S1[Types + Zod DTOs]
+        S2[Workflow transitions]
+        S3[AI interfaces]
+    end
+
+    Frontend -.-> Shared
+    Backend -.-> Shared
 ```
 
-**Backend** (`backend/src/`):
+**`packages/shared/` (`@odin/shared`)** — single source of truth:
 
-- `work-items/` — module with controller, service, DTOs (Zod + nestjs-zod)
-- `ai/` — LLM provider abstraction with Groq primary, OpenRouter fallback
-- `db/` — Drizzle schema + better-sqlite3 setup via @knaadh/nestjs-drizzle-better-sqlite3
-- `common/` — filters, interceptors, state-machine constants
+- `types/work-item.ts` — `WorkItemStatus`, `WorkItemPriority`, `WorkItem`
+- `dto/create-work-item.ts` — `CreateWorkItemSchema` (Zod) + `CreateWorkItemRequest` (type)
+- `dto/update-status.ts` — `UpdateStatusSchema` (Zod) + `UpdateStatusRequest` (type)
+- `workflow/transitions.ts` — `ALLOWED_TRANSITIONS` whitelist map
+- `ai/types.ts` — `AiAnalysis`, `AiProvider` interfaces
+- `ai/analysis-schema.ts` — `AiAnalysisSchema` (Zod) + `AiAnalysisDto` (type)
 
-**Frontend** (`frontend/src`):
+**`apps/api/`** — NestJS backend:
 
-- `routes/` — TanStack Router routes (code-based for single-page, file-based if expanded)
-- `api/` — axios client + TanStack Query hooks
-- `components/` — WorkItemCard, StatusBadge, FilterBar
-- `store/` — Zustand store for UI-only state (filter selection)
+- `work-items/` — controller, service, module with workflow validation
+- `ai/` — `AiProvider` interface with `MockAiProvider` and `OpenAiProvider`
+- `db/` — Drizzle schema + custom `better-sqlite3` provider (~20 lines, no community wrapper)
+- `common/` — `ZodValidationPipe`, `HttpExceptionFilter`, `LoggingInterceptor`
 
-**Infra** (`infra/`):
+**`apps/web/`** — React frontend:
 
-`docker-compose.yml` — backend + frontend with watch mode
-`.env.example` — GROQ_API_KEY, OPENROUTER_API_KEY, DATABASE_PATH
+- `components/` — `WorkItemCard`, `StatusBadge`, `FilterBar`, `WorkItemList`
+- `hooks/use-work-items.ts` — TanStack Query hooks
+- `store/` — Redux Toolkit store with `filterSlice`
+- `lib/api.ts` — axios client
+- `types/work-item.ts` — re-exports from `@odin/shared`
 
 ## Stack
 
 **Frontend**
 
-- React
-- TypeScript
-- React Compiler
-- Vite
-- Tanstack Router
+- React 19
+- TypeScript 6
+- React Compiler (babel plugin)
+- Vite 8
+- TanStack Router + Query
 - Redux Toolkit
-- Tailwind CSS
-- Zod
-
+- Tailwind CSS v4
+- Zod 4
 
 **Backend**
 
-- NestJS
-- TypeScript
-- Drizzle
-- SQLite
-- Zod + nestjs-zod
-- AI provider abstraction
+- NestJS 12
+- TypeScript 6 (nodenext resolution)
+- Drizzle ORM + better-sqlite3 (direct, no community wrapper)
+- Zod 4 (custom ZodValidationPipe, no nestjs-zod)
+- AI provider abstraction (Mock + OpenAI)
 
+**Shared**
 
-**AI**
+- `@odin/shared` workspace package
+- Zod 4 schemas + inferred types
+- Pure domain logic (workflow transitions)
 
-- Grok AI with llama-3.1-8b-instant (fast)
-- OpenRouter with meta-llama/llama-3.3-70b-instruct (quality fallback)
+**Testing**
 
-
-Testing
-
-- Jest
 - Vitest
-- React Testing Library
-- supertest
+- supertest (e2e)
 
-Dev
+**Dev**
 
-- Docker
+- pnpm workspace
 - Oxlint
 - Prettier
 
 ## Key Config
 
-`.env` needs: `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DATABASE_PATH=./data/app.db`, `PORT=3000`
+`apps/api/.env` needs: `OPENAI_API_KEY` (optional), `AI_PROVIDER=mock|openai`, `DATABASE_URL=./data/odin.db`, `PORT=3000`
 
-Frontend proxies `/api` to backend via Vite config.
-
-
-## Backend: Drizzle + SQLite Setup
-
-Install the required packages:
-
-```bash
-pnpm install @knaadh/nestjs-drizzle-better-sqlite3 drizzle-orm better-sqlite3
-pnpm install -D @types/better-sqlite3 drizzle-kit
-```
-
-## Backend: LLM Fallback Strategy
-
-Do not depend on an external package. Implement a lightweight provider cascade yourself, directly reflecting the assessment's fault-tolerance requirements:
-
-```ts
-// ai/llm.service.ts
-import { Injectable, Logger } from '@nestjs/common';
-
-@Injectable()
-export class LlmService {
-  private readonly logger = new Logger(LlmService.name);
-
-  async analyze(workItem: WorkItem): Promise<AnalysisResult> {
-    const providers = [
-      { name: 'groq', call: () => this.callGroq(workItem) },
-      { name: 'openrouter', call: () => this.callOpenRouter(workItem) },
-    ];
-
-    for (const provider of providers) {
-      try {
-        return await this.withTimeout(provider.call(), 30_000);
-      } catch (err) {
-        this.logger.warn(`${provider.name} failed: ${err.message}`);
-        continue;
-      }
-    }
-    throw new Error('All LLM providers failed');
-  }
-
-  private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error('LLM timeout')), ms),
-      ),
-    ]);
-  }
-}
-```
-
-Groq uses llama-3.1-8b-instant (fast), OpenRouter uses meta-llama/llama-3.3-70b-instruct as a quality fallback. Both APIs are OpenAI-compatible, so the request-building code can be shared.
-
-Additionally, validate the LLM's response with Zod before persisting. If parsing fails, treat it as a provider failure and continue the cascade:
-
-```ts
-const AnalysisSchema = z.object({
-  category: z.string(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH']),
-  summary: z.string(),
-  recommendedAction: z.string(),
-});
-
-const parsed = AnalysisSchema.safeParse(rawOutput);
-if (!parsed.success) throw new Error('Malformed LLM output');
-```
-## Backend: Zod + nestjs-zod Validation
+Frontend proxies `/work-items` to backend via Vite config.
 
 ## Backend: State Machine
 
-Define allowed transitions as a whitelist map in `common/state-machine.ts`:
+Defined in `packages/shared/src/workflow/transitions.ts`:
 
 ```ts
 export const ALLOWED_TRANSITIONS: Record<WorkItemStatus, WorkItemStatus[]> = {
@@ -213,11 +158,30 @@ export const ALLOWED_TRANSITIONS: Record<WorkItemStatus, WorkItemStatus[]> = {
   ANALYSING: ['READY_FOR_REVIEW', 'FAILED'],
   READY_FOR_REVIEW: ['COMPLETED'],
   COMPLETED: [],
-  FAILED: [],
+  FAILED: ['ANALYSING'], // only via retry
 };
 ```
 
-When `PATCH /work-items/:id/status` receives a request, verify `ALLOWED_TRANSITIONS[current].includes(next)` before updating. Illegal transitions return `409 Conflict`.
+`WorkflowService` (in `apps/api`) validates transitions and throws `409 Conflict` on invalid ones.
 
+## Backend: AI Provider
 
-The `retry` endpoint is a special case: only work items with status `FAILED` are eligible. On retry, set status back to `ANALYSING` and re-run analysis.
+Single provider selected via `AI_PROVIDER` env var. Both implement `AiProvider` from `@odin/shared`:
+
+```ts
+export interface AiProvider {
+  analyse(input: { title: string; description: string }): Promise<AiAnalysis>;
+}
+```
+
+- `MockAiProvider` — returns deterministic results after 100ms delay
+- `OpenAiProvider` — calls OpenAI chat completions API
+
+`AiService` validates responses with `AiAnalysisSchema` (Zod). Malformed output is treated as a failure — work item transitions to `FAILED`.
+
+## Backend: Idempotent Creation
+
+`POST /work-items` is idempotent on `externalId`:
+1. Fast path: SELECT by `externalId` — return existing if found
+2. INSERT with UNIQUE constraint as final guard against race conditions
+3. On UNIQUE constraint violation, SELECT again to retrieve the concurrently-inserted row
