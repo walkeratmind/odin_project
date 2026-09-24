@@ -25,6 +25,7 @@ export default defineConfig({
   server: {
     host: true,
     strictPort: true,
+    allowedHosts: true,
     proxy: {
       '/work-items': API_PROXY_TARGET,
       '/ai-config': API_PROXY_TARGET,
@@ -32,5 +33,9 @@ export default defineConfig({
       '/reference': API_PROXY_TARGET,
       '/reference-json': API_PROXY_TARGET,
     },
+  },
+  preview: {
+    host: true,
+    allowedHosts: true,
   },
 });
