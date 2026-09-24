@@ -72,3 +72,10 @@ export async function updateAiConfig(provider: string): Promise<AiConfig> {
   const { data } = await client.put<AiConfig>('/ai-config', { provider });
   return data;
 }
+
+// ── Admin ────────────────────────────────────────────
+
+export async function resetDatabase(): Promise<{ message: string; count: number }> {
+  const { data } = await client.post<{ message: string; count: number }>('/admin/reset');
+  return data;
+}

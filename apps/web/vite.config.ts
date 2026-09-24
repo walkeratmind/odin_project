@@ -28,6 +28,7 @@ export default defineConfig({
     proxy: {
       '/work-items': API_PROXY_TARGET,
       '/ai-config': API_PROXY_TARGET,
+      '/admin': API_PROXY_TARGET,
       '/reference': API_PROXY_TARGET,
       '/reference-json': API_PROXY_TARGET,
     },

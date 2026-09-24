@@ -8,6 +8,7 @@ import {
   updateWorkItemStatus,
   fetchAiConfig,
   updateAiConfig,
+  resetDatabase,
 } from '@/lib/api';
 import type { WorkItemStatus } from '@/types/work-item';
 
@@ -83,6 +84,18 @@ export function useUpdateAiConfig() {
     mutationFn: (provider: string) => updateAiConfig(provider),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-config'] });
+    },
+  });
+}
+
+// ── Admin ─────────────────────────────────────────
+
+export function useResetDatabase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => resetDatabase(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-items'] });
     },
   });
 }
