@@ -1,0 +1,21 @@
+# keep the build context small & cache-friendly (context = repo root)
+.git
+**/node_modules
+**/dist
+**/coverage
+**/data/*.db
+**/data/*.db-shm
+**/data/*.db-wal
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+.pnpm-store
+
+docs
+assets
+image.png
+compose*.yml
+infra
+README.md
+**/README.md
+AGENTS.md

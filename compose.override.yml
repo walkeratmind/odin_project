@@ -1,0 +1,58 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Dev overlay — docker compose merges this on top of compose.yml automatically
+# (this exact filename, singular "override", is the one compose looks for).
+#
+#   docker compose up --build
+#
+# Hot reload: host source dirs are bind-mounted over the baked source;
+# nest --watch (api) and vite HMR (web) pick up edits inside the containers.
+# The api's SQLite lives in ./apps/api/data — the SAME file bare-metal
+# `pnpm run dev` uses, so data is shared across modes. Don't run both the
+# containerised api and a local api process at the same time (SQLite WAL).
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    image: odin-api:dev
+    container_name: odin-api-dev
+    restart: "no"
+    volumes:
+      # same target paths as the prod named volume → bind mount wins on merge
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/data:/app/apps/api/data
+      - ./packages/shared/src:/app/packages/shared/src
+    environment:
+      - NODE_ENV=development
+      # real LLMs while developing: just export the keys before `docker compose up`
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    image: odin-web:dev
+    container_name: odin-web-dev
+    restart: "no"
+    # replace the prod 8080:80 mapping (nginx) with the vite dev server
+    ports: !override
+      - "5173:5173"
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts
+      - ./packages/shared/src:/app/packages/shared/src
+    environment:
+      - NODE_ENV=development
+      # vite proxy must reach the api container, not the web container's own localhost
+      - API_PROXY_TARGET=http://api:3000
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5173/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
