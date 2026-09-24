@@ -16,7 +16,7 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 
 # cache-mount: node-gyp header downloads survive across stages & rebuilds
-RUN --mount=type=cache,target=/root/.cache/node-gyp \
+RUN --mount=type=cache,id=node-gyp,target=/root/.cache/node-gyp \
     pnpm install --frozen-lockfile
 
 # ─── builder: compile shared + api ───────────────────────────────────────────
@@ -62,7 +62,7 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 
-RUN --mount=type=cache,target=/root/.cache/node-gyp \
+RUN --mount=type=cache,id=node-gyp,target=/root/.cache/node-gyp \
     pnpm install --frozen-lockfile --prod \
  && apk del .gyp
 
@@ -72,8 +72,8 @@ COPY --from=builder /app/apps/api/dist apps/api/dist/
 COPY apps/api/drizzle apps/api/drizzle/
 COPY apps/api/data/seed.json apps/api/templates/seed.json
 
+# data/ dir is the volume mount point (Railway / Docker Compose)
 RUN mkdir -p /app/apps/api/data
-# no VOLUME — Render manages its own disk mount at /var/data
 
 ENV NODE_ENV=production \
     DATABASE_URL=/app/apps/api/data/odin.db \
