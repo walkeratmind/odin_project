@@ -1,0 +1,48 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: ${API_IMAGE_NAME:-api-app}:${API_IMAGE_TAG:-latest}
+    container_name: ${API_CONTAINER_NAME:-api-app}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - odin-data:/app/apps/api/data
+    environment:
+      - DATABASE_URL=./data/odin.db
+      - AI_PROVIDER=mock
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.docker.compose.project=${COMPOSE_PROJECT_NAME:-odin-app}"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: ${WEB_IMAGE_NAME:-web-app}:${WEB_IMAGE_TAG:-latest}
+    container_name: ${WEB_CONTAINER_NAME:-web-app}
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.docker.compose.project=${COMPOSE_PROJECT_NAME:-odin-app}"
+
+volumes:
+  odin-data:

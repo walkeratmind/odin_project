@@ -44,7 +44,7 @@ odin_project/
 flowchart TB
     subgraph Frontend["apps/web — React + Vite"]
         F1[WorkItemList]
-        F2[FilterBar]
+        F2[FilterBanner]
         F3[WorkItemCard]
         F4[TanStack Query hooks]
         F5[Redux store]
@@ -98,7 +98,7 @@ flowchart TB
 
 **`apps/web/`** — React frontend:
 
-- `components/` — `WorkItemCard`, `StatusBadge`, `FilterBar`, `WorkItemList`
+- `components/` — `WorkItemCard`, `StatusBadge`, `FilterBanner`, `WorkItemList`
 - `hooks/use-work-items.ts` — TanStack Query hooks
 - `store/` — Redux Toolkit store with `filterSlice`
 - `lib/api.ts` — axios client
