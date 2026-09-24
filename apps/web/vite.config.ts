@@ -24,6 +24,9 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/work-items': 'http://localhost:3000',
+      '/ai-config': 'http://localhost:3000',
+      '/reference': 'http://localhost:3000',
+      '/reference-json': 'http://localhost:3000',
     },
   },
 });

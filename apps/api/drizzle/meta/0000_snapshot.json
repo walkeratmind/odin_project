@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b196c9da-9c41-46ff-9fc3-4e22aa38c3b6",
+  "id": "31807e96-d466-4404-8855-c0b7df8ec499",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "work_items": {
@@ -71,8 +71,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "ai_error": {
-          "name": "ai_error",
+        "error": {
+          "name": "error",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -100,6 +100,13 @@
             "external_id"
           ],
           "isUnique": true
+        },
+        "status_idx": {
+          "name": "status_idx",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},

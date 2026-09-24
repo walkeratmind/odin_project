@@ -64,9 +64,9 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
       )}
 
       {/* Error message */}
-      {item.aiError && (
+      {item.error && (
         <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
-          <span className="font-medium">Error:</span> {item.aiError}
+          <span className="font-medium">Error:</span> {item.error}
         </div>
       )}
 

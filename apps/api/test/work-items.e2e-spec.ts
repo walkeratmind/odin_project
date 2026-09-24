@@ -3,9 +3,10 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
-import { AppModule } from '../src/app.module.js';
-import * as schema from '../src/db/schema.js';
-import { DRIZZLE_PROVIDER } from '../src/db/database.provider.js';
+import { AppModule } from '../src/app.module';
+import * as schema from '../src/db/schema';
+import { DRIZZLE_PROVIDER } from '../src/db/database.provider';
+import { AiConfigService } from '../src/ai/ai-config.service';
 import type { AiProvider, AiAnalysis } from '@odin/shared';
 
 class ConfigurableMockAiProvider implements AiProvider {
@@ -49,7 +50,7 @@ function createTestDb(): BetterSQLite3Database<typeof schema> {
       priority TEXT,
       summary TEXT,
       recommended_action TEXT,
-      ai_error TEXT,
+      error TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
@@ -71,8 +72,15 @@ describe('Work Items (e2e)', () => {
     })
       .overrideProvider(DRIZZLE_PROVIDER)
       .useValue(testDb)
-      .overrideProvider('AI_PROVIDER')
-      .useValue(mockProvider)
+      .overrideProvider(AiConfigService)
+      .useValue({
+        getProvider: () => mockProvider,
+        getConfig: () => ({
+          selected: 'mock',
+          available: [{ id: 'mock', name: 'Mock AI', provider: 'mock', model: 'mock' }],
+        }),
+        setProvider: () => {},
+      })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -303,7 +311,7 @@ describe('Work Items (e2e)', () => {
         .expect(201);
 
       expect(res.body.status).toBe('FAILED');
-      expect(res.body.aiError).toContain('Malformed AI output');
+      expect(res.body.error).toContain('Malformed AI output');
       expect(res.body.category).toBeNull();
       expect(res.body.priority).toBeNull();
     });
@@ -321,7 +329,7 @@ describe('Work Items (e2e)', () => {
         .expect(201);
 
       expect(res.body.status).toBe('FAILED');
-      expect(res.body.aiError).toContain('API unavailable');
+      expect(res.body.error).toContain('API unavailable');
     });
   });
 
@@ -351,7 +359,7 @@ describe('Work Items (e2e)', () => {
 
       expect(res.body.status).toBe('READY_FOR_REVIEW');
       expect(res.body.category).toBeDefined();
-      expect(res.body.aiError).toBeNull();
+      expect(res.body.error).toBeNull();
     });
 
     it('rejects retry for non-FAILED items', async () => {

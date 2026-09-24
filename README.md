@@ -8,7 +8,7 @@ Monorepo for processing work items through an AI analysis pipeline. External sys
 |-------|-----------|
 | **Frontend** | React 19, TypeScript 6, React Compiler, Vite 8, TanStack Router + Query, Redux Toolkit, Tailwind CSS v4, Zod 4 |
 | **Backend** | NestJS 12, TypeScript 6 (nodenext), Drizzle ORM + better-sqlite3, Zod 4 |
-| **AI** | Provider abstraction — Mock (deterministic) + OpenAI (GPT-4o-mini) |
+| **AI** | Provider abstraction — Mock (deterministic) + Groq (openai/gpt-oss-20b) |
 | **Shared** | `@odin/shared` pnpm workspace package — types, Zod DTOs, workflow transitions, AI interfaces |
 | **API Docs** | Scalar (OpenAPI reference at `/reference`) |
 | **Testing** | Vitest, supertest (19 e2e tests) |
@@ -45,9 +45,9 @@ Environment variables (set in `compose.yml` or `.env`):
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | `./data/odin.db` | SQLite database path |
-| `AI_PROVIDER` | `mock` | `mock` or `openai` |
-| `OPENAI_API_KEY` | — | Required when `AI_PROVIDER=openai` |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Model to use with OpenAI |
+| `AI_PROVIDER` | `mock` | `mock` or `groq` |
+| `GROQ_API_KEY` | — | Required when switching to Groq |
+| `GROQ_MODEL` | `openai/gpt-oss-20b` | Model to use with Groq |
 | `PORT` | `3000` | API server port |
 
 ## API Reference
@@ -140,6 +140,30 @@ curl -X PATCH http://localhost:3000/work-items/9/status \
 ```
 
 → `200` — allowed transitions only (see state machine below). Invalid transitions → `409`.
+
+---
+
+#### `GET /ai-config` — Get current AI provider
+
+```bash
+curl http://localhost:3000/ai-config
+```
+
+→ `200` — `{ provider: "mock" }`
+
+---
+
+#### `PUT /ai-config` — Switch AI provider
+
+```bash
+curl -X PUT http://localhost:3000/ai-config \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"groq"}'
+```
+
+→ `200` — `{ provider: "groq" }`. Requires `GROQ_API_KEY` env var.
+
+---
 
 ### State Machine
 

@@ -48,3 +48,27 @@ export async function updateWorkItemStatus(id: number, dto: UpdateStatusRequest)
   const { data } = await client.patch<WorkItem>(`/work-items/${id}/status`, dto);
   return data;
 }
+
+// ── AI Config ─────────────────────────────────────────
+
+export interface ProviderInfo {
+  id: string;
+  name: string;
+  provider: string;
+  model: string;
+}
+
+export interface AiConfig {
+  selected: string;
+  available: ProviderInfo[];
+}
+
+export async function fetchAiConfig(): Promise<AiConfig> {
+  const { data } = await client.get<AiConfig>('/ai-config');
+  return data;
+}
+
+export async function updateAiConfig(provider: string): Promise<AiConfig> {
+  const { data } = await client.put<AiConfig>('/ai-config', { provider });
+  return data;
+}

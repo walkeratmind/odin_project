@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
@@ -10,7 +11,18 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
 
-  // Scalar API reference — available at /reference
+  // OpenAPI spec
+  const config = new DocumentBuilder()
+    .setTitle('Odin Work Intake API')
+    .setDescription('AI-assisted work item processing system')
+    .setVersion('1.0')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api-docs', app, document, {
+    jsonDocumentUrl: '/reference-json',
+  });
+
+  // Scalar API reference UI
   app.use(
     '/reference',
     apiReference({

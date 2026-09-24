@@ -6,6 +6,8 @@ import {
   analyseWorkItem,
   retryWorkItem,
   updateWorkItemStatus,
+  fetchAiConfig,
+  updateAiConfig,
 } from '@/lib/api';
 import type { WorkItemStatus } from '@/types/work-item';
 
@@ -61,6 +63,26 @@ export function useUpdateWorkItemStatus() {
       updateWorkItemStatus(id, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-items'] });
+    },
+  });
+}
+
+// ── AI Config ─────────────────────────────────────────
+
+export function useAiConfig() {
+  return useQuery({
+    queryKey: ['ai-config'],
+    queryFn: fetchAiConfig,
+    staleTime: 60_000,
+  });
+}
+
+export function useUpdateAiConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (provider: string) => updateAiConfig(provider),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-config'] });
     },
   });
 }

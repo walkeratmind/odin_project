@@ -22,7 +22,8 @@ export class WorkItemsService {
   private readonly logger = new Logger(WorkItemsService.name);
 
   constructor(
-    @Inject(DRIZZLE_PROVIDER) private readonly db: BetterSQLite3Database<typeof schema>,
+    @Inject(DRIZZLE_PROVIDER)
+    private readonly db: BetterSQLite3Database<typeof schema>,
     private readonly workflowService: WorkflowService,
     private readonly aiService: AiService,
   ) {}
@@ -35,19 +36,19 @@ export class WorkItemsService {
   async create(dto: CreateWorkItemRequest): Promise<WorkItem> {
     const now = new Date().toISOString();
 
-    // Fast path: check if already exists
-    const existing = this.db
-      .select()
-      .from(schema.workItems)
-      .where(eq(schema.workItems.externalId, dto.externalId))
-      .get();
+    // // Fast path: check if already exists
+    // const existing = this.db
+    //   .select()
+    //   .from(schema.workItems)
+    //   .where(eq(schema.workItems.externalId, dto.externalId))
+    //   .get();
 
-    if (existing) {
-      this.logger.log(
-        `Idempotent create — returning existing item ${existing.id} for externalId=${dto.externalId}`,
-      );
-      return existing;
-    }
+    // if (existing) {
+    //   this.logger.log(
+    //     `Idempotent create — returning existing item ${existing.id} for externalId=${dto.externalId}`,
+    //   );
+    //   return existing;
+    // }
 
     const values: NewWorkItem = {
       externalId: dto.externalId,
@@ -71,32 +72,39 @@ export class WorkItemsService {
     } catch (error) {
       // Handle concurrent duplicate: another request inserted the same externalId
       // between our SELECT and INSERT. The UNIQUE constraint caught it.
-      if (
-        error instanceof Error &&
-        error.message.includes('UNIQUE constraint')
-      ) {
-        const concurrent = this.db
-          .select()
-          .from(schema.workItems)
-          .where(eq(schema.workItems.externalId, dto.externalId))
-          .get();
-
-        if (concurrent) {
-          this.logger.log(
-            `Race condition resolved — returning concurrently created item ${concurrent.id} for externalId=${dto.externalId}`,
-          );
-          return concurrent;
-        }
+      if (!this.isUniqueConstraintError(error)) {
+        throw error;
       }
-      throw error;
+      const existing = this.db
+        .select()
+        .from(schema.workItems)
+        .where(eq(schema.workItems.externalId, dto.externalId))
+        .get();
+
+      if (!existing) {
+        throw error;
+      }
+      this.logger.log(
+        `Item Exist, Returning existing item ${existing.id} for externalId=${dto.externalId}`,
+      );
+      return existing;
     }
+  }
+
+  isUniqueConstraintError(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      error.message.includes('UNIQUE constraint failed')
+    );
   }
 
   /**
    * Paginated list of work items, ordered newest-first.
    * Fetches limit + 1 rows to determine if there's a next page.
    */
-  async findPaginated(query: PaginatedQuery): Promise<PaginatedResponse<WorkItem>> {
+  async findPaginated(
+    query: PaginatedQuery,
+  ): Promise<PaginatedResponse<WorkItem>> {
     const { status, cursor, limit } = query;
 
     const conditions = [];
@@ -211,7 +219,7 @@ export class WorkItemsService {
           priority: analysis.priority,
           summary: analysis.summary,
           recommendedAction: analysis.recommendedAction,
-          aiError: null,
+          error: null,
           updatedAt: new Date().toISOString(),
         })
         .where(eq(schema.workItems.id, item.id))
@@ -233,7 +241,7 @@ export class WorkItemsService {
         .update(schema.workItems)
         .set({
           status: 'FAILED',
-          aiError: errorMessage,
+          error: errorMessage,
           updatedAt: new Date().toISOString(),
         })
         .where(eq(schema.workItems.id, item.id))

@@ -92,9 +92,11 @@ flowchart TB
 **`apps/api/`** — NestJS backend:
 
 - `work-items/` — controller, service, module with workflow validation
-- `ai/` — `AiProvider` interface with `MockAiProvider` and `OpenAiProvider`
+- `ai/` — provider registry + factory pattern, `AiProvider` interface, `GroqProvider` (groq-sdk), `OpenAiProvider`, `MockAiProvider`
+- `ai/providers/provider.registry.ts` — extensible registry; adding a new LLM = 1 entry
 - `db/` — Drizzle schema + custom `better-sqlite3` provider (~20 lines, no community wrapper)
 - `common/` — `ZodValidationPipe`, `HttpExceptionFilter`, `LoggingInterceptor`
+- `config/` — typed configuration via `@nestjs/config` (`app.config.ts`)
 
 **`apps/web/`** — React frontend:
 
@@ -122,8 +124,11 @@ flowchart TB
 - NestJS 12
 - TypeScript 6 (nodenext resolution)
 - Drizzle ORM + better-sqlite3 (direct, no community wrapper)
+- @nestjs/config (typed configuration)
 - Zod 4 (custom ZodValidationPipe, no nestjs-zod)
-- AI provider abstraction (Mock + OpenAI)
+- AI provider abstraction (Mock + Groq + OpenAI) with provider registry + factory pattern
+- groq-sdk (official Groq SDK)
+- Scalar API reference (`/reference`)
 
 **Shared**
 
@@ -144,7 +149,24 @@ flowchart TB
 
 ## Key Config
 
-`apps/api/.env` needs: `OPENAI_API_KEY` (optional), `AI_PROVIDER=mock|openai`, `DATABASE_URL=./data/odin.db`, `PORT=3000`
+`apps/api/.env`:
+
+```env
+# Database
+DATABASE_URL=./data/odin.db
+PORT=3000
+
+# Groq AI (auto-enabled when API key is set)
+GROQ_API_KEY=gsk_xxx
+GROQ_MODELS=qwen/qwen3.8-27b,openai/gpt-oss-20b
+
+# OpenAI AI (auto-enabled when API key is set)
+OPENAI_API_KEY=sk-xxx
+OPENAI_MODELS=gpt-4o-mini,gpt-4o
+```
+
+All env vars are loaded via `@nestjs/config` (`ConfigModule.forRoot` in `AppModule`).
+Each provider is only available if its `*_API_KEY` is set. Mock is always available.
 
 Frontend proxies `/work-items` to backend via Vite config.
 
@@ -166,7 +188,8 @@ export const ALLOWED_TRANSITIONS: Record<WorkItemStatus, WorkItemStatus[]> = {
 
 ## Backend: AI Provider
 
-Single provider selected via `AI_PROVIDER` env var. Both implement `AiProvider` from `@odin/shared`:
+Provider switchable at runtime via UI dropdown or `PUT /ai-config`.
+Architecture uses a **provider registry + factory pattern** (`provider.registry.ts`).
 
 ```ts
 export interface AiProvider {
@@ -174,10 +197,37 @@ export interface AiProvider {
 }
 ```
 
-- `MockAiProvider` — returns deterministic results after 100ms delay
-- `OpenAiProvider` — calls OpenAI chat completions API
+- `MockAiProvider` — deterministic results, always available, no API key needed
+- `GroqProvider` — uses `groq-sdk`, supports any Groq-hosted model (`GROQ_MODELS`)
+- `OpenAiProvider` — uses OpenAI chat completions API, supports any OpenAI model (`OPENAI_MODELS`)
 
-`AiService` validates responses with `AiAnalysisSchema` (Zod). Malformed output is treated as a failure — work item transitions to `FAILED`.
+`AiService` validates responses with `AiAnalysisSchema` (Zod). Malformed output → `FAILED`.
+
+### Adding a new provider
+
+1. Implement `AiProvider` in `src/ai/providers/`
+2. Add config fields to `src/config/app.config.ts`
+3. Add entry to `buildProviderDefinitions()` in `src/ai/providers/provider.registry.ts`
+
+The UI dropdown populates automatically — no frontend changes needed.
+
+## Backend: AI Config
+
+```bash
+# GET — returns selected provider + all available options
+curl http://localhost:3000/ai-config
+# → { "selected": "groq:llama-3.1-8b-instant",
+#     "available": [
+#       { "id": "mock", "name": "Mock AI", "provider": "mock", "model": "mock" },
+#       { "id": "groq:llama-3.1-8b-instant", "name": "Groq - Llama 3.1 8B Instant",
+#         "provider": "groq", "model": "llama-3.1-8b-instant" }
+#     ] }
+
+# PUT — switch provider by id (any value from available[])
+curl -X PUT http://localhost:3000/ai-config \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"openai:gpt-4o-mini"}'
+```
 
 ## Backend: Idempotent Creation
 

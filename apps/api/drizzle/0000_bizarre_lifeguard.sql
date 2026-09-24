@@ -8,9 +8,10 @@ CREATE TABLE `work_items` (
 	`priority` text,
 	`summary` text,
 	`recommended_action` text,
-	`ai_error` text,
+	`error` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `work_items_external_id_unique` ON `work_items` (`external_id`);
+CREATE UNIQUE INDEX `work_items_external_id_unique` ON `work_items` (`external_id`);--> statement-breakpoint
+CREATE INDEX `status_idx` ON `work_items` (`status`);

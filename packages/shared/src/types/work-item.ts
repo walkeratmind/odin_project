@@ -17,7 +17,7 @@ export interface WorkItem {
   priority: WorkItemPriority | null;
   summary: string | null;
   recommendedAction: string | null;
-  aiError: string | null;
+  error: string | null;
   createdAt: string;
   updatedAt: string;
 }
