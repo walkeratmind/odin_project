@@ -8,6 +8,9 @@ import { apiReference } from '@scalar/nestjs-api-reference';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Allow web frontend (any origin in dev; Railway's internal domain in prod)
+  app.enableCors();
+
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
 
