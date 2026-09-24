@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchWorkItems,
   fetchWorkItem,
+  fetchWorkItemStats,
   analyseWorkItem,
   retryWorkItem,
   updateWorkItemStatus,
@@ -9,9 +10,19 @@ import {
 import type { WorkItemStatus } from '@/types/work-item';
 
 export function useWorkItems(status?: string) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['work-items', { status }],
-    queryFn: () => fetchWorkItems(status),
+    queryFn: ({ pageParam }) => fetchWorkItems(status, pageParam as number | undefined),
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+}
+
+export function useWorkItemStats() {
+  return useQuery({
+    queryKey: ['work-items', 'stats'],
+    queryFn: fetchWorkItemStats,
+    staleTime: 10_000,
   });
 }
 

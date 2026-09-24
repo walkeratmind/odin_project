@@ -16,6 +16,13 @@ export {
   type UpdateStatusRequest,
 } from './dto/update-status.js';
 
+export {
+  PaginatedQuerySchema,
+  type PaginatedQuery,
+  type PaginatedResponse,
+  type WorkItemStats,
+} from './dto/paginated-query.js';
+
 // ── Workflow ─────────────────────────────────────────
 export { ALLOWED_TRANSITIONS } from './workflow/transitions.js';
 

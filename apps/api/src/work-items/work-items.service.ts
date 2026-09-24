@@ -1,11 +1,18 @@
 import { Injectable, Logger, Inject, NotFoundException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, lt, desc, count, and } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../db/schema.js';
 import { DRIZZLE_PROVIDER } from '../db/database.provider.js';
 import { WorkflowService } from './workflow/workflow.service.js';
 import { AiService } from '../ai/ai.service.js';
-import type { CreateWorkItemRequest, UpdateStatusRequest, WorkItemStatus } from '@odin/shared';
+import type {
+  CreateWorkItemRequest,
+  UpdateStatusRequest,
+  WorkItemStatus,
+  PaginatedQuery,
+  PaginatedResponse,
+  WorkItemStats,
+} from '@odin/shared';
 
 type WorkItem = typeof schema.workItems.$inferSelect;
 type NewWorkItem = typeof schema.workItems.$inferInsert;
@@ -86,17 +93,65 @@ export class WorkItemsService {
   }
 
   /**
-   * List all work items, optionally filtered by status.
+   * Paginated list of work items, ordered newest-first.
+   * Fetches limit + 1 rows to determine if there's a next page.
    */
-  async findAll(status?: string): Promise<WorkItem[]> {
+  async findPaginated(query: PaginatedQuery): Promise<PaginatedResponse<WorkItem>> {
+    const { status, cursor, limit } = query;
+
+    const conditions = [];
     if (status) {
-      return this.db
-        .select()
-        .from(schema.workItems)
-        .where(eq(schema.workItems.status, status))
-        .all();
+      conditions.push(eq(schema.workItems.status, status));
     }
-    return this.db.select().from(schema.workItems).all();
+    if (cursor) {
+      conditions.push(lt(schema.workItems.id, cursor));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const items = this.db
+      .select()
+      .from(schema.workItems)
+      .where(whereClause)
+      .orderBy(desc(schema.workItems.id))
+      .limit(limit + 1)
+      .all();
+
+    const hasMore = items.length > limit;
+    const page = hasMore ? items.slice(0, limit) : items;
+    const nextCursor = hasMore ? page[page.length - 1]!.id : null;
+
+    return { items: page, nextCursor };
+  }
+
+  /**
+   * Aggregate stats — total + per-status counts.
+   */
+  async getStats(): Promise<WorkItemStats> {
+    const rows = this.db
+      .select({
+        status: schema.workItems.status,
+        count: count(),
+      })
+      .from(schema.workItems)
+      .groupBy(schema.workItems.status)
+      .all();
+
+    const counts: Record<string, number> = {
+      RECEIVED: 0,
+      ANALYSING: 0,
+      READY_FOR_REVIEW: 0,
+      COMPLETED: 0,
+      FAILED: 0,
+    };
+
+    let total = 0;
+    for (const row of rows) {
+      counts[row.status] = row.count;
+      total += row.count;
+    }
+
+    return { total, counts: counts as WorkItemStats['counts'] };
   }
 
   /**

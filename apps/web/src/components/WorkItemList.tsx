@@ -1,12 +1,27 @@
-import { useWorkItems } from '@/hooks/use-work-items';
-import { useAppSelector } from '@/store';
+import type { WorkItem } from '@/types/work-item';
 import { WorkItemCard } from './WorkItemCard';
 
-export function WorkItemList() {
-  const statusFilter = useAppSelector((state) => state.filter.statusFilter);
-  const status = statusFilter === 'ALL' ? undefined : statusFilter;
-  const { data: items, isLoading, isError, error } = useWorkItems(status);
+interface WorkItemListProps {
+  items: WorkItem[];
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+  isFetchingNextPage: boolean;
+  hasNextPage: boolean;
+  total: number | undefined;
+  onLoadMore: () => void;
+}
 
+export function WorkItemList({
+  items,
+  isLoading,
+  isError,
+  error,
+  isFetchingNextPage,
+  hasNextPage,
+  total,
+  onLoadMore,
+}: WorkItemListProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -26,24 +41,36 @@ export function WorkItemList() {
     );
   }
 
-  if (!items || items.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-12 text-center">
         <p className="text-gray-500">No work items found.</p>
-        <p className="mt-1 text-sm text-gray-400">
-          {statusFilter !== 'ALL'
-            ? 'Try changing the status filter.'
-            : 'Work items will appear here when received from external systems.'}
-        </p>
       </div>
     );
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {items.map((item) => (
-        <WorkItemCard key={item.id} item={item} />
-      ))}
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2">
+        {items.map((item) => (
+          <WorkItemCard key={item.id} item={item} />
+        ))}
+      </div>
+
+      {/* Load more / terminal message */}
+      <div className="flex justify-center">
+        {hasNextPage ? (
+          <button
+            onClick={onLoadMore}
+            disabled={isFetchingNextPage}
+            className="rounded-md bg-white border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {isFetchingNextPage ? 'Loading...' : 'Load more'}
+          </button>
+        ) : total !== undefined && items.length > 0 ? (
+          <p className="text-sm text-gray-400">All {total} items loaded</p>
+        ) : null}
+      </div>
     </div>
   );
 }

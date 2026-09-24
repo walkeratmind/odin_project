@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 
 export const workItems = sqliteTable('work_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -16,4 +16,6 @@ export const workItems = sqliteTable('work_items', {
 
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
-});
+}, (table) => ({
+  statusIdx: index('status_idx').on(table.status),
+}));

@@ -15,6 +15,8 @@ import {
   type CreateWorkItemRequest,
   UpdateStatusSchema,
   type UpdateStatusRequest,
+  PaginatedQuerySchema,
+  type PaginatedQuery,
 } from '@odin/shared';
 
 @Controller('work-items')
@@ -26,9 +28,16 @@ export class WorkItemsController {
     return this.workItemsService.create(dto);
   }
 
+  @Get('stats')
+  async getStats() {
+    return this.workItemsService.getStats();
+  }
+
   @Get()
-  async findAll(@Query('status') status?: string) {
-    return this.workItemsService.findAll(status);
+  async findAll(
+    @Query(new ZodValidationPipe(PaginatedQuerySchema)) query: PaginatedQuery,
+  ) {
+    return this.workItemsService.findPaginated(query);
   }
 
   @Get(':id')

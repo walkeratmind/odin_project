@@ -1,6 +1,8 @@
 import { createRouter, createRootRoute, createRoute, Outlet } from '@tanstack/react-router';
-import { FilterBar } from '@/components/FilterBar';
+import { FilterBanner } from '@/components/FilterBanner';
 import { WorkItemList } from '@/components/WorkItemList';
+import { useWorkItems, useWorkItemStats } from '@/hooks/use-work-items';
+import { useAppSelector } from '@/store';
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -24,10 +26,36 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: function IndexPage() {
+    const statusFilter = useAppSelector((state) => state.filter.statusFilter);
+    const status = statusFilter === 'ALL' ? undefined : statusFilter;
+
+    const {
+      data: pages,
+      isLoading,
+      isError,
+      error,
+      isFetchingNextPage,
+      hasNextPage,
+      fetchNextPage,
+    } = useWorkItems(status);
+
+    const { data: stats } = useWorkItemStats();
+
+    const items = pages?.pages.flatMap((p) => p.items) ?? [];
+
     return (
       <div className="space-y-6">
-        <FilterBar />
-        <WorkItemList />
+        <FilterBanner stats={stats} loadedCount={items.length} />
+        <WorkItemList
+          items={items}
+          isLoading={isLoading}
+          isError={isError}
+          error={error as Error | null}
+          isFetchingNextPage={isFetchingNextPage}
+          hasNextPage={hasNextPage}
+          total={stats?.total}
+          onLoadMore={() => fetchNextPage()}
+        />
       </div>
     );
   },

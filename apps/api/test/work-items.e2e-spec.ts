@@ -148,7 +148,8 @@ describe('Work Items (e2e)', () => {
         .get('/work-items')
         .expect(200);
 
-      expect(res.body).toHaveLength(2);
+      expect(res.body.items).toHaveLength(2);
+      expect(res.body.nextCursor).toBeNull();
     });
 
     it('filters by status', async () => {
@@ -171,8 +172,8 @@ describe('Work Items (e2e)', () => {
         .get('/work-items?status=FAILED')
         .expect(200);
 
-      expect(res.body).toHaveLength(1);
-      expect(res.body[0].status).toBe('FAILED');
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].status).toBe('FAILED');
     });
   });
 
@@ -363,6 +364,60 @@ describe('Work Items (e2e)', () => {
         .expect(409);
 
       expect(res.body.code).toBe('RETRY_NOT_ALLOWED');
+    });
+  });
+
+  describe('GET /work-items/stats', () => {
+    it('returns total and per-status counts', async () => {
+      await request(app.getHttpServer())
+        .post('/work-items')
+        .send({ externalId: 'STAT-1', title: 'Item 1', description: 'Desc' });
+
+      await request(app.getHttpServer())
+        .post('/work-items')
+        .send({ externalId: 'STAT-2', title: 'Item 2', description: 'Desc' });
+
+      const res = await request(app.getHttpServer())
+        .get('/work-items/stats')
+        .expect(200);
+
+      expect(res.body.total).toBe(2);
+      expect(res.body.counts.RECEIVED).toBe(2);
+      expect(res.body.counts.COMPLETED).toBe(0);
+    });
+  });
+
+  describe('GET /work-items pagination', () => {
+    it('returns a nextCursor when more items exist', async () => {
+      // Create 3 items
+      for (const ext of ['CSR-1', 'CSR-2', 'CSR-3']) {
+        await request(app.getHttpServer())
+          .post('/work-items')
+          .send({ externalId: ext, title: ext, description: 'Desc' });
+      }
+
+      const page1 = await request(app.getHttpServer())
+        .get('/work-items?limit=2')
+        .expect(200);
+
+      expect(page1.body.items).toHaveLength(2);
+      expect(page1.body.nextCursor).toBeGreaterThan(0);
+
+      const page2 = await request(app.getHttpServer())
+        .get(`/work-items?limit=2&cursor=${page1.body.nextCursor}`)
+        .expect(200);
+
+      expect(page2.body.items).toHaveLength(1);
+      expect(page2.body.nextCursor).toBeNull();
+    });
+
+    it('returns empty and null cursor when no items match', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/work-items?status=COMPLETED')
+        .expect(200);
+
+      expect(res.body.items).toHaveLength(0);
+      expect(res.body.nextCursor).toBeNull();
     });
   });
 });

@@ -1,14 +1,26 @@
 import axios from 'axios';
 import type { WorkItem, CreateWorkItemRequest, UpdateStatusRequest } from '@/types/work-item';
+import type { PaginatedResponse, WorkItemStats } from '@odin/shared';
 
 const client = axios.create({
   baseURL: '/',
   headers: { 'Content-Type': 'application/json' },
 });
 
-export async function fetchWorkItems(status?: string): Promise<WorkItem[]> {
-  const params = status ? { status } : undefined;
-  const { data } = await client.get<WorkItem[]>('/work-items', { params });
+export async function fetchWorkItems(
+  status?: string,
+  cursor?: number,
+  limit = 20,
+): Promise<PaginatedResponse<WorkItem>> {
+  const params: Record<string, string | number> = { limit };
+  if (status) params.status = status;
+  if (cursor) params.cursor = cursor;
+  const { data } = await client.get<PaginatedResponse<WorkItem>>('/work-items', { params });
+  return data;
+}
+
+export async function fetchWorkItemStats(): Promise<WorkItemStats> {
+  const { data } = await client.get<WorkItemStats>('/work-items/stats');
   return data;
 }
 
