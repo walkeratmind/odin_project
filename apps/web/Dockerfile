@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1
 
+# Accept VITE_API_URL at build time (Railway sets this, defaults to / for compose)
+ARG VITE_API_URL=/
+
 # ─── deps: install workspace deps ────────────────────────────────────────────
 FROM node:22-alpine AS deps
 WORKDIR /app
@@ -15,6 +18,8 @@ RUN pnpm install --frozen-lockfile
 # ─── builder: compile shared + web ───────────────────────────────────────────
 FROM deps AS builder
 
+ARG VITE_API_URL
+
 COPY packages/shared/tsconfig.json packages/shared/
 COPY packages/shared/src packages/shared/src/
 RUN pnpm --filter shared build
@@ -23,6 +28,9 @@ COPY apps/web/index.html apps/web/tsconfig.json apps/web/tsconfig.app.json \
      apps/web/tsconfig.node.json apps/web/vite.config.ts apps/web/
 COPY apps/web/src apps/web/src/
 COPY apps/web/public apps/web/public/
+
+# Vite picks up VITE_API_URL from environment during build
+ENV VITE_API_URL=${VITE_API_URL}
 RUN pnpm --filter web build
 
 # ─── prod: Caddy serving static files ────────────────────────────────────────

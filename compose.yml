@@ -39,6 +39,8 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       target: prod
+      args:
+        - VITE_API_URL=http://api:3000
     image: ${WEB_IMAGE_NAME:-web-app}:${WEB_IMAGE_TAG:-latest}
     container_name: ${WEB_CONTAINER_NAME:-web-app}
     ports:
