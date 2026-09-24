@@ -1,22 +1,21 @@
-# ── Listen on Railway's $PORT (default 3000) ──────────────────────────────
-:{$PORT:3000} {
+# Listen on Railway's $PORT, fall back to 80
+:80 {
     root * /srv
     encode gzip
-
-    # ── Proxy API paths to the backend ──────────────────────────────────
-    # $API_TARGET defaults to http://api:3000 (Docker Compose).
-    # On Railway set API_TARGET to the internal API service URL.
-    @api {
-        path /work-items /work-items/*
-        path /ai-config /ai-config/*
-        path /admin /admin/*
-        path /health /health/*
-        path /reference /reference/*
-        path /reference-json /reference-json/*
-        path /api-docs /api-docs/*
+    log {
+        output stdout
     }
 
-    reverse_proxy @api {$API_TARGET:http://api:3000}
+    # ── Proxy API paths to the backend ──────────────────────────────────
+    @api {
+        path /work-items*
+        path /ai-config*
+        path /admin*
+        path /health*
+        path /reference*
+        path /api-docs*
+    }
+    reverse_proxy @api {env.API_TARGET:http://api:3000}
 
     # ── SPA fallback ────────────────────────────────────────────────────
     try_files {path} /index.html

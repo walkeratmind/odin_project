@@ -31,4 +31,7 @@ FROM caddy:2-alpine AS prod
 COPY --from=builder /app/apps/web/dist /srv
 COPY apps/web/Caddyfile /etc/caddy/Caddyfile
 
-EXPOSE 80 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+
+EXPOSE 80
