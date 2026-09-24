@@ -2,8 +2,10 @@ import axios from 'axios';
 import type { WorkItem, CreateWorkItemRequest, UpdateStatusRequest } from '@/types/work-item';
 import type { PaginatedResponse, WorkItemStats } from '@odin/shared';
 
+const API_URL = import.meta.env.VITE_API_URL ?? '/';
+
 const client = axios.create({
-  baseURL: '/',
+  baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 

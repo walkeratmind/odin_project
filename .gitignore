@@ -5,9 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# environment
+# environment (secrets only — .env.production / .env.example are committed)
 .env
-.env.*
+.env.local
 
 # database
 *.db

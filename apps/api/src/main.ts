@@ -8,8 +8,10 @@ import { apiReference } from '@scalar/nestjs-api-reference';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Allow web frontend (any origin in dev; Railway's internal domain in prod)
-  app.enableCors();
+  // Allow web frontend (any origin in dev; Railway's deployed frontend in prod)
+  app.enableCors({
+    origin: process.env.FRONTEND_URL ?? true,
+  });
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
@@ -37,7 +39,7 @@ async function bootstrap() {
   );
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   console.log(`Application running on port ${port}`);
   console.log(`API reference: http://localhost:${port}/reference`);
 }

@@ -1,23 +1,12 @@
-# Listen on Railway's $PORT, fall back to 80
-:80 {
+# Listen on Railway's $PORT, fall back to 80 locally
+:{$PORT:80} {
     root * /srv
     encode gzip
     log {
         output stdout
     }
 
-    # ── Proxy API paths to the backend ──────────────────────────────────
-    @api {
-        path /work-items*
-        path /ai-config*
-        path /admin*
-        path /health*
-        path /reference*
-        path /api-docs*
-    }
-    reverse_proxy @api {env.API_TARGET:http://api:3000}
-
-    # ── SPA fallback ────────────────────────────────────────────────────
+    # SPA fallback for client-side routing
     try_files {path} /index.html
     file_server
 }
