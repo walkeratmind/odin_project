@@ -21,7 +21,9 @@ export interface AiProvidersConfig {
 }
 
 function parseModels(env: string | undefined, fallback: string): string[] {
-  return (env ?? fallback).split(',').map(s => s.trim()).filter(Boolean);
+  // treat empty/whitespace-only env (e.g. compose `${X:-}`) as unset so fallbacks survive
+  const source = env?.trim() ? env : fallback;
+  return source.split(',').map(s => s.trim()).filter(Boolean);
 }
 
 export const appConfig = registerAs(

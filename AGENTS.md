@@ -21,6 +21,10 @@ cd apps/web && pnpm run build
 cd apps/api && pnpm run db:generate
 cd apps/api && pnpm run db:migrate
 
+# Docker (from repo root)
+docker compose up --build                        # dev w/ hot reload (compose.yml + compose.override.yml)
+docker compose -f compose.yml up -d --build      # production
+
 # Dev (both api + web)
 pnpm run dev
 ```

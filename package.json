@@ -1,11 +1,12 @@
 {
   "name": "odin_project",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "AI-assisted work intake system",
   "scripts": {
     "dev": "pnpm --filter shared build && pnpm --filter api start:dev & pnpm --filter web dev",
     "build": "pnpm --filter shared build && pnpm --filter api build && pnpm --filter web build",
+    "start:prod": "node apps/api/dist/main.js",
     "test": "pnpm --filter api test",
     "test:e2e": "pnpm --filter api test:e2e",
     "lint": "pnpm --filter api lint && pnpm --filter web lint",
@@ -17,12 +18,12 @@
   "author": "Rakesh",
   "license": "ISC",
   "engines": {
-    "node": ">=24.15.0"
+    "node": ">=22.0.0"
   },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "^11.0.9",
+      "version": ">=10.0.0",
       "onFail": "download"
     }
   },

@@ -1,244 +1,306 @@
 # Odin — AI-Assisted Work Intake System
 
-Monorepo for processing work items through an AI analysis pipeline. External systems submit work items via REST API; an LLM provider analyses each item (categorisation, priority, summary, recommended action); operations users review and complete items through the web dashboard.
+Monorepo for an AI-assisted work intake system. External systems submit work items via REST API; an LLM provider analyses each item (categorisation, priority, summary, recommended action); operations users review and complete items through the web dashboard.
 
-## Tech Stack
+---
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | React 19, TypeScript 6, React Compiler, Vite 8, TanStack Router + Query, Redux Toolkit, Tailwind CSS v4, Zod 4 |
-| **Backend** | NestJS 12, TypeScript 6 (nodenext), Drizzle ORM + better-sqlite3, Zod 4 |
-| **AI** | Provider abstraction — Mock (deterministic) + Groq (openai/gpt-oss-20b) |
-| **Shared** | `@odin/shared` pnpm workspace package — types, Zod DTOs, workflow transitions, AI interfaces |
-| **API Docs** | Scalar (OpenAPI reference at `/reference`) |
-| **Testing** | Vitest, supertest (19 e2e tests) |
-| **Dev** | pnpm workspace, Oxlint, Prettier |
+## Setup
 
-## Quick Start
+### Prerequisites
+
+- **Node.js** ≥ 24 (ESM, TypeScript 6)
+- **pnpm** ≥ 11
+
+### Install & Run
 
 ```bash
-# Prerequisites: Node.js >= 24, pnpm >= 11
+# Clone and install
+git clone <repo-url> && cd odin_project
 pnpm install
-pnpm run dev          # starts api (port 3000) + web (port 5173)
+
+# Start both API and web dashboard
+pnpm run dev
 ```
 
-Open http://localhost:5173 for the dashboard.
+| Service | URL |
+|---------|-----|
+| Web dashboard | http://localhost:5173 |
+| API | http://localhost:3000 |
+| API reference (Scalar) | http://localhost:5173/reference |
 
-### Seed data
+### Environment
+
+Copy and edit `apps/api/.env`:
+
+```env
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=./data/odin.db
+
+# Groq AI (auto-enabled when key is set)
+GROQ_API_KEY=gsk_xxx
+GROQ_MODELS=openai/gpt-oss-20b,qwen/qwen3.8-27b
+
+# OpenAI (auto-enabled when key is set)
+# OPENAI_API_KEY=sk-xxx
+# OPENAI_MODELS=gpt-4o-mini
+```
+
+Each provider is only available if its `*_API_KEY` is set. Mock is always available as a fallback. Switch providers at runtime via the dropdown in the web dashboard or `PUT /ai-config`.
+
+### Docker
+
+**Development** (hot reload — bind-mounts `src/` + `apps/api/data`; nest `--watch` + vite HMR):
 
 ```bash
-cd apps/api && npx tsx scripts/seed.ts   # 25 sample work items
+docker compose up --build          # auto-merges compose.yml + compose.override.yml
 ```
 
-## Docker
+Web on http://localhost:5173, API on http://localhost:3000. The dev API shares `./apps/api/data` with bare-metal dev (same SQLite file) — run only one API at a time.
+
+**Production** (override ignored; nginx-served build + compiled API):
 
 ```bash
-docker compose up --build
+docker compose -f compose.yml up -d --build
 ```
 
-- **API** → http://localhost:3000
-- **Web dashboard** → http://localhost:8080
-- **API reference** → http://localhost:8080/reference
-
-Environment variables (set in `compose.yml` or `.env`):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `./data/odin.db` | SQLite database path |
-| `AI_PROVIDER` | `mock` | `mock` or `groq` |
-| `GROQ_API_KEY` | — | Required when switching to Groq |
-| `GROQ_MODEL` | `openai/gpt-oss-20b` | Model to use with Groq |
-| `PORT` | `3000` | API server port |
-
-## API Reference
-
-Interactive docs at `/reference` when the server is running.
-
-### Endpoints
-
-#### `POST /work-items` — Submit a work item
-
-```bash
-curl -X POST http://localhost:3000/work-items \
-  -H "Content-Type: application/json" \
-  -d '{"externalId":"CRM-001","title":"Missing document","description":"Applicant has not submitted payslip."}'
-```
-
-→ `201` — returns the created work item with `status: "RECEIVED"`
-
-Idempotent on `externalId` — resubmitting the same ID returns the existing item.
+Web on http://localhost:8080, API on http://localhost:3000, SQLite persisted in the named volume `odin-data`. AI keys (optional): `GROQ_API_KEY=... OPENAI_API_KEY=... docker compose -f compose.yml up`.
 
 ---
 
-#### `GET /work-items` — List work items (cursor-paginated)
+## Architecture
 
-```bash
-# First page (newest first, default 20 per page)
-curl http://localhost:3000/work-items
-
-# Filter by status
-curl "http://localhost:3000/work-items?status=FAILED"
-
-# Custom page size + cursor
-curl "http://localhost:3000/work-items?limit=5&cursor=42"
+```
+odin_project/
+├── packages/shared/       # @odin/shared — types, DTOs, workflow, AI interfaces
+├── apps/
+│   ├── api/               # NestJS backend (Drizzle + SQLite + AI providers)
+│   └── web/               # React + Vite frontend (TanStack Router + Query + Redux)
+├── docs/adr/              # Architecture Decision Records
+└── infra/                 # Docker compose
 ```
 
-→ `200` — `{ items: [...], nextCursor: 25 }`
+```mermaid
+flowchart TB
+    subgraph Frontend["apps/web — React + Vite"]
+        F1[FilterBanner — status + AI dropdown]
+        F2[WorkItemList — paginated cards]
+        F3[WorkItemCard — detail + actions]
+        F4[TanStack Query hooks]
+        F5[Redux filter store]
+    end
 
-`nextCursor` is `null` when no more pages. Sort: `id DESC` (newest first).
+    Frontend -->|REST / JSON| Backend
 
----
+    subgraph Backend["apps/api — NestJS"]
+        B1[WorkItemsController]
+        B2[WorkItemsService]
+        B3[WorkflowService — state machine]
+        B4[AiService]
+    end
 
-#### `GET /work-items/stats` — Aggregate counts
+    Backend --> DB[(SQLite / Drizzle)]
+    Backend --> AI
 
-```bash
-curl http://localhost:3000/work-items/stats
+    subgraph AI["AI Provider Registry"]
+        A1[Mock — always available]
+        A2[Groq — groq-sdk]
+        A3[OpenAI — fetch API]
+    end
+
+    subgraph Shared["packages/shared"]
+        S1[Types + Zod DTOs]
+        S2[Workflow transitions]
+        S3[AI interfaces]
+    end
+
+    Frontend -.-> Shared
+    Backend -.-> Shared
 ```
-
-→ `200` — `{ total: 153, counts: { RECEIVED: 45, ANALYSING: 12, READY_FOR_REVIEW: 30, COMPLETED: 54, FAILED: 12 } }`
-
----
-
-#### `GET /work-items/:id` — Get a single work item
-
-```bash
-curl http://localhost:3000/work-items/1
-```
-
-→ `200` — the work item, or `404`
-
----
-
-#### `POST /work-items/:id/analyse` — Trigger AI analysis
-
-```bash
-curl -X POST http://localhost:3000/work-items/1/analyse
-```
-
-→ `201` — item transitions `RECEIVED → ANALYSING → READY_FOR_REVIEW` on success, or `RECEIVED → ANALYSING → FAILED` on error
-
-Only `RECEIVED` items can be analysed. Returns `409` otherwise.
-
----
-
-#### `POST /work-items/:id/retry` — Retry a failed analysis
-
-```bash
-curl -X POST http://localhost:3000/work-items/23/retry
-```
-
-→ `201` — resets `FAILED → RECEIVED` then re-runs analysis. Only `FAILED` items. Returns `409` otherwise.
-
----
-
-#### `PATCH /work-items/:id/status` — Update status
-
-```bash
-curl -X PATCH http://localhost:3000/work-items/9/status \
-  -H "Content-Type: application/json" \
-  -d '{"status":"COMPLETED"}'
-```
-
-→ `200` — allowed transitions only (see state machine below). Invalid transitions → `409`.
-
----
-
-#### `GET /ai-config` — Get current AI provider
-
-```bash
-curl http://localhost:3000/ai-config
-```
-
-→ `200` — `{ provider: "mock" }`
-
----
-
-#### `PUT /ai-config` — Switch AI provider
-
-```bash
-curl -X PUT http://localhost:3000/ai-config \
-  -H "Content-Type: application/json" \
-  -d '{"provider":"groq"}'
-```
-
-→ `200` — `{ provider: "groq" }`. Requires `GROQ_API_KEY` env var.
-
----
 
 ### State Machine
+
+Work items progress through a defined state machine:
 
 ```
 RECEIVED → ANALYSING → READY_FOR_REVIEW → COMPLETED
                 ↘ FAILED ↗ (retry)
 ```
 
-| From | To | Trigger |
-|------|----|---------|
-| `RECEIVED` | `ANALYSING` | `POST /:id/analyse` |
-| `ANALYSING` | `READY_FOR_REVIEW` | AI succeeds |
-| `ANALYSING` | `FAILED` | AI fails / times out / malformed |
-| `READY_FOR_REVIEW` | `COMPLETED` | `PATCH /:id/status` |
-| `FAILED` | `RECEIVED` | `POST /:id/retry` (then analyse) |
+Transitions are validated server-side in `WorkflowService`. Invalid transitions return `409 Conflict`.
 
-### Error Response Format
+### AI Provider Registry
 
-```json
-{
-  "statusCode": 409,
-  "code": "INVALID_WORKFLOW_TRANSITION",
-  "message": "Cannot transition work item from COMPLETED to ANALYSING.",
-  "timestamp": "2026-09-23T12:00:00.000Z",
-  "path": "/work-items/5/status"
-}
-```
+Providers are registered via an extensible factory pattern in `src/ai/providers/provider.registry.ts`. Each provider type maps to a factory function, enabled by its API key. Models are configured per-provider via comma-separated env vars.
 
-## Project Structure
+Adding a new provider (e.g., Anthropic):
+1. Implement the `AiProvider` interface
+2. Add a factory entry to the registry
+3. Add config fields to `app.config.ts`
 
-```
-odin_project/
-├── compose.yml              # Docker Compose (api + web)
-├── package.json             # Root workspace scripts
-├── pnpm-workspace.yaml
-├── AGENTS.md                # Developer guide
-├── README.md
-├── packages/
-│   └── shared/              # @odin/shared — types, Zod DTOs, workflow, AI
-│       ├── src/
-│       │   ├── types/       # WorkItemStatus, WorkItemPriority, WorkItem
-│       │   ├── dto/         # CreateWorkItemSchema, UpdateStatusSchema, PaginatedQuerySchema
-│       │   ├── workflow/    # ALLOWED_TRANSITIONS
-│       │   └── ai/          # AiAnalysis, AiProvider, AiAnalysisSchema
-│       └── dist/            # Compiled JS + declarations
-├── apps/
-│   ├── api/                 # NestJS backend
-│   │   ├── src/
-│   │   │   ├── work-items/  # Controller, service, workflow validation
-│   │   │   ├── ai/          # AiService, MockAiProvider, OpenAiProvider
-│   │   │   ├── db/          # Drizzle schema + better-sqlite3 provider
-│   │   │   └── common/      # ZodValidationPipe, filters, interceptors
-│   │   ├── scripts/         # seed.ts
-│   │   └── Dockerfile
-│   └── web/                 # React + Vite frontend
-│       ├── src/
-│       │   ├── components/  # FilterBanner, WorkItemList, WorkItemCard, StatusBadge
-│       │   ├── hooks/       # useWorkItems (infinite query), useWorkItemStats
-│       │   ├── store/       # Redux Toolkit (filterSlice)
-│       │   ├── lib/         # axios client, query client
-│       │   └── types/       # Re-exports from @odin/shared
-│       ├── nginx.conf
-│       └── Containerfile
-├── docs/adr/                # Architecture Decision Records
-└── infra/                   # Legacy compose (superseded by root compose.yml)
-```
+The UI dropdown populates dynamically — no frontend changes needed.
 
-## Commands
+See [ADR-003](docs/adr/03-ai-llm-integration.md) for the full design.
+
+---
+
+## API Reference
+
+Interactive docs at `/reference` when the server is running.
+
+### Work Items
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/work-items` | Submit a work item (idempotent on `externalId`) |
+| `GET` | `/work-items` | List work items (cursor-paginated, newest first) |
+| `GET` | `/work-items/stats` | Aggregate per-status counts |
+| `GET` | `/work-items/:id` | Get a single work item |
+| `POST` | `/work-items/:id/analyse` | Trigger AI analysis (`RECEIVED` → `ANALYSING`) |
+| `POST` | `/work-items/:id/retry` | Retry a failed analysis (`FAILED` → `RECEIVED`) |
+| `PATCH` | `/work-items/:id/status` | Manual status transition (validated) |
+
+### AI Config
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/ai-config` | Get current provider + all available |
+| `PUT` | `/ai-config` | Switch provider by id |
 
 ```bash
+# List available providers
+curl http://localhost:3000/ai-config
+# → { "selected": "groq:openai/gpt-oss-20b",
+#     "available": [{ "id": "mock", "name": "Mock AI", ... }, ...] }
+
+# Switch provider
+curl -X PUT http://localhost:3000/ai-config \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"groq:qwen/qwen3.8-27b"}'
+```
+
+---
+
+## Assumptions
+
+1. **Single-tenant, single-user** — no authentication, no multi-tenancy. Work items belong to one logical workspace.
+2. **Synchronous AI analysis** — analysis runs inline (sub-30s timeout). No background job queue.
+3. **SQLite is sufficient** — read/write volume fits in a single-node SQLite. No concurrent write contention beyond idempotency.
+4. **Work items are text-only** — no file uploads, no binary attachments. Title + description are the only inputs to the LLM.
+5. **External ID uniqueness** — the `externalId` field is the integration contract. Upstream systems must provide stable, unique IDs.
+6. **No soft-delete** — items are never deleted, only transitioned through statuses.
+
+---
+
+## Technical Decisions
+
+### 1. Provider Registry + Factory Pattern (over single env-var switch)
+
+**Decision:** Each AI provider registers a factory function in a typed registry. Models are parsed from env vars into arrays, creating one selectable entry per model.
+
+**Why:**
+- Adding a new provider is three files (provider class, registry entry, config field)
+- The UI dropdown renders dynamically — no hardcoded provider lists
+- Per-model selection (not just per-provider) gives operators precise control
+- The `AiProvider` interface keeps providers swappable at runtime
+
+**Rejected:** A single `AI_PROVIDER=mock|groq|openai` env var with hardcoded model lists in the frontend. Too rigid, doesn't support multiple models per provider.
+
+### 2. Direct Drizzle + better-sqlite3 (over community NestJS wrapper)
+
+**Decision:** A ~20-line custom provider creates a Drizzle instance directly from `better-sqlite3`.
+
+**Why:**
+- Drizzle ORM natively supports `better-sqlite3`
+- The community wrapper is unmaintained and adds an external dependency
+- Direct integration makes the database setup transparent to reviewers
+
+---
+
+## Production Considerations
+
+### Authentication & Authorization
+- Add JWT-based auth with role-scoped endpoints (submitter vs. reviewer)
+- API keys for machine-to-machine submission from external systems
+- Rate limiting per client
+
+### Background Processing
+- Replace synchronous AI analysis with a job queue (BullMQ + Redis)
+- Retry with exponential backoff for transient LLM failures
+- Dead-letter queue for permanently failed items
+
+### Observability
+- Structured JSON logging (Pino) with correlation IDs per request
+- OpenTelemetry tracing across API → AI provider calls
+- Metrics: analysis latency p50/p95/p99, failure rate by provider/model, queue depth
+
+### Scalability
+- Swap SQLite for PostgreSQL with connection pooling
+- Horizontal scaling: stateless API instances behind a load balancer
+- Read replicas for the dashboard query load
+
+### Security
+- Validate and sanitise all LLM inputs (prompt injection)
+- Store API keys in a secrets manager (not `.env` files)
+- HTTPS everywhere, CSP headers, CORS whitelist
+- Input size limits on work item title/description
+
+### Database Design
+- Add indexes on `status`, `created_at` for filtered queries
+- Consider partitioning by `created_at` for archival
+- Database-level migrations with rollback support
+
+### LLM Reliability & Cost
+- Per-model cost tracking and budgets
+- Response caching for identical inputs
+- Fallback to cheaper model on rate-limit (`qwen` → `llama`)
+- Prompt versioning and A/B testing
+
+---
+
+## AI Usage
+
+**Tools used:** Deepseek (via [pi coding agent](https://github.com/earendil-works/pi) ) for planning, code generation, refactoring, and documentation.
+
+**What AI was used for:**
+- Designing the frontend ui and redundant functionality like query hooks, redux store, and filter banner
+- Designing the provider registry + factory pattern
+- Refactoring from raw `fetch` to `groq-sdk`
+- Migrating from `dotenv` to `@nestjs/config`
+- Generating drizzle migrations
+- Writing ADRs and README documentation
+
+**Verification:**
+- All generated code passes `pnpm run build` (TypeScript strict mode)
+- 19 e2e tests pass with in-memory SQLite
+- API endpoints verified via curl
+- Frontend builds verify type compatibility with shared package
+
+**Changes made to AI-generated code:**
+- updating the POST endpoint to create work-items to be idempotent on `externalId` (upsert)
+- updating the AI provider registry to support multiple models per provider and dynamic dropdown population.
+- Adding a `WorkflowService` to validate state transitions and return `409 Conflict` on invalid transitions.
+
+---
+
+## Checklist
+
+Tested the endpoints manually via curl and yaak too.
+
+![yaak](assets/update-work-item-status.png)
+
+## Scripts
+
+```bash
+# From repo root
 pnpm install              # Install all dependencies
 pnpm run dev              # Start api + web in dev mode
-pnpm run build            # Build shared → api → web
-pnpm run lint             # Lint all packages
-pnpm run test:e2e         # Run API e2e tests (19 tests)
-pnpm run db:generate      # Generate Drizzle migration
-pnpm run db:migrate       # Apply Drizzle migration
+pnpm run build            # Build both
+pnpm run test:e2e         # Run e2e tests (api)
+
+# Database
+cd apps/api
+pnpm run db:generate      # Generate drizzle migration
+pnpm run db:migrate       # Apply migrations
+pnpm run db:studio        # Open drizzle-kit studio (SQLite browser)
 ```

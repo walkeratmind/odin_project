@@ -70,8 +70,6 @@ export class WorkItemsService {
       );
       return result;
     } catch (error) {
-      // Handle concurrent duplicate: another request inserted the same externalId
-      // between our SELECT and INSERT. The UNIQUE constraint caught it.
       if (!this.isUniqueConstraintError(error)) {
         throw error;
       }

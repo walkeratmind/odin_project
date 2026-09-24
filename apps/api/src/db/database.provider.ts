@@ -7,27 +7,27 @@ import * as schema from './schema.js';
 import { seedIfEmpty } from './seed.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const MIGRATIONS_DIR = join(__dirname, '..', '..', 'drizzle');
+const MIGRATIONS_DIR = process.env.MIGRATIONS_DIR ?? join(__dirname, '..', '..', 'drizzle');
+
+export type Database = BetterSQLite3Database<typeof schema>;
 
 export const DRIZZLE_PROVIDER = 'DRIZZLE_PROVIDER';
 
 export const databaseProvider = {
   provide: DRIZZLE_PROVIDER,
-  useFactory: async (): Promise<BetterSQLite3Database<typeof schema>> => {
+  useFactory: (): Database => {
     const dbPath = process.env.DATABASE_URL ?? './data/odin.db';
     const sqlite = new Database(dbPath);
     sqlite.pragma('journal_mode = WAL');
 
     const db = drizzle(sqlite, { schema });
 
-    // Auto-apply migrations on startup
+    // Auto-apply migrations on startup (idempotent)
     migrate(db, { migrationsFolder: MIGRATIONS_DIR });
 
     // Seed if empty
-    const seeded = seedIfEmpty(db);
-    if (seeded > 0) {
-      console.log(`Seeded ${seeded} work items into ${dbPath}`);
-    }
+    const count = seedIfEmpty(db);
+    if (count > 0) console.log(`Seeded ${count} work items into ${dbPath}`);
 
     return db;
   },

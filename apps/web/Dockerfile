@@ -1,19 +1,39 @@
 # syntax=docker/dockerfile:1
 
-# ─── Build stage ─────────────────────────────────────────────────────────────
-FROM node:22-alpine AS builder
+# ─── deps: install workspace deps (vite & co are devDependencies) ────────────
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Copy workspace config + web package files
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/
 
 RUN pnpm install --frozen-lockfile
 
-# Copy shared package and build
+# ─── dev: vite dev server with HMR (compose target=dev) ──────────────────────
+# compose.override.yml bind-mounts apps/web/src, vite.config.ts and
+# packages/shared/src so edits hot-reload without rebuilding the image.
+FROM deps AS dev
+WORKDIR /app
+
+COPY packages/shared/tsconfig.json packages/shared/
+COPY packages/shared/src packages/shared/src/
+RUN pnpm --filter shared build
+
+COPY apps/web/index.html apps/web/tsconfig.json apps/web/tsconfig.app.json apps/web/tsconfig.node.json apps/web/vite.config.ts apps/web/
+COPY apps/web/src apps/web/src/
+COPY apps/web/public apps/web/public/
+
+EXPOSE 5173
+# rebuild @odin/shared on boot so packages/shared edits survive a container restart
+CMD ["sh", "-c", "pnpm --filter shared build && pnpm --filter web dev"]
+
+# ─── builder: production bundle ──────────────────────────────────────────────
+FROM deps AS builder
+
+# Build shared package first
 COPY packages/shared/tsconfig.json packages/shared/
 COPY packages/shared/src packages/shared/src/
 RUN pnpm --filter shared build
@@ -24,8 +44,8 @@ COPY apps/web/src apps/web/src/
 COPY apps/web/public apps/web/public/
 RUN pnpm --filter web build
 
-# ─── Serve stage ─────────────────────────────────────────────────────────────
-FROM nginx:stable-alpine AS runner
+# ─── prod: nginx static serving ──────────────────────────────────────────────
+FROM nginx:stable-alpine AS prod
 
 LABEL org.opencontainers.image.title="React App" \
       org.opencontainers.image.description="Vite + React + TypeScript" \
