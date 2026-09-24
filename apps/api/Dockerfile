@@ -15,9 +15,7 @@ COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 
-# cache-mount: node-gyp header downloads survive across stages & rebuilds
-RUN --mount=type=cache,id=node-gyp,target=/root/.cache/node-gyp \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # ─── builder: compile shared + api ───────────────────────────────────────────
 FROM deps AS builder
@@ -62,8 +60,7 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 
-RUN --mount=type=cache,id=node-gyp,target=/root/.cache/node-gyp \
-    pnpm install --frozen-lockfile --prod \
+RUN pnpm install --frozen-lockfile --prod \
  && apk del .gyp
 
 COPY --from=builder /app/packages/shared/dist packages/shared/dist/
